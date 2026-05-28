@@ -1,201 +1,204 @@
+// FILE LOCATION: app/(auth)/login/page.tsx
 'use client'
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
-import { BookOpen, Zap, Brain, Sparkles } from 'lucide-react'
+import { Brain, BookOpen, Zap, BarChart2, MessageCircle } from 'lucide-react'
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('')
+  const [email, setEmail]       = useState('')
   const [password, setPassword] = useState('')
   const [isSignUp, setIsSignUp] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [message, setMessage] = useState('')
+  const [loading, setLoading]   = useState(false)
+  const [error, setError]       = useState('')
+  const [message, setMessage]   = useState('')
   const router = useRouter()
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault()
-    setLoading(true)
-    setError('')
-    setMessage('')
-
+    setLoading(true); setError(''); setMessage('')
     const supabase = createClient()
 
     if (isSignUp) {
       const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { emailRedirectTo: `${window.location.origin}/dashboard` }
+        email, password,
+        options: { emailRedirectTo: `${window.location.origin}/dashboard` },
       })
-      if (error) {
-        setError(error.message)
-      } else {
-        setMessage('Check your email for a confirmation link!')
-      }
+      if (error) setError(error.message)
+      else setMessage('Check your email for a confirmation link!')
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
-      if (error) {
-        setError(error.message)
-      } else {
-        router.push('/dashboard')
-        router.refresh()
-      }
+      if (error) setError(error.message)
+      else { router.push('/dashboard'); router.refresh() }
     }
     setLoading(false)
   }
 
   const features = [
-    { icon: BookOpen, label: 'PDF Upload & Extraction', color: '#00FF88' },
-    { icon: Brain, label: 'AI Summaries', color: '#0088FF' },
-    { icon: Zap, label: 'Smart Flashcards', color: '#FFEE00' },
-    { icon: Sparkles, label: 'Interactive Quizzes', color: '#FF0088' },
+    { icon: BookOpen,     label: 'PDF Summaries',    color: '#4F8EF7' },
+    { icon: Zap,          label: 'Smart Flashcards',  color: '#6EE7B7' },
+    { icon: BarChart2,    label: 'Quiz Mode',          color: '#FBBF24' },
+    { icon: MessageCircle,label: 'AI Tutor Chat',      color: '#A78BFA' },
   ]
 
   return (
-    <div className="grid-bg min-h-screen flex">
-      {/* Left Panel - Branding */}
-      <div className="hidden lg:flex flex-col justify-between w-1/2 p-12 relative overflow-hidden">
-        {/* Decorative orbs */}
-        <div className="absolute top-20 left-20 w-64 h-64 bg-[#00FF88] rounded-full opacity-[0.06] blur-3xl pointer-events-none" />
-        <div className="absolute bottom-20 right-10 w-80 h-80 bg-[#0088FF] rounded-full opacity-[0.05] blur-3xl pointer-events-none" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-[#8800FF] rounded-full opacity-[0.04] blur-3xl pointer-events-none" />
+    <div style={{ minHeight: '100vh', display: 'flex', background: '#0F0F0F' }}>
+
+      {/* ── Left panel ── */}
+      <div style={{
+        width: '44%', padding: '48px 56px',
+        display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+        borderRight: '1px solid #1E1E1E',
+      }} className="hidden lg:flex">
 
         {/* Logo */}
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#00FF88] flex items-center justify-center">
-            <Brain size={20} className="text-[#0A0A0F]" />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{
+            width: 34, height: 34, borderRadius: 9,
+            background: '#4F8EF7', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <Brain size={18} color="#fff" />
           </div>
-          <span className="font-display font-bold text-xl text-white">StudyAI</span>
+          <span style={{ fontWeight: 700, fontSize: 17, color: '#F2F2F2', letterSpacing: '-0.3px' }}>
+            StudyAI
+          </span>
         </div>
 
-        {/* Hero text */}
-        <div className="space-y-6">
-          <div>
-            <h1 className="font-display font-extrabold text-5xl leading-tight text-white mb-4">
-              Learn Anything<br />
-              <span className="text-gradient-green">10x Faster</span>
-            </h1>
-            <p className="text-[#9090D0] text-lg leading-relaxed max-w-md">
-              Upload your PDFs and let Gemini AI transform them into summaries, flashcards, quizzes, and more. Study smarter, not harder.
-            </p>
-          </div>
+        {/* Hero */}
+        <div>
+          <h1 style={{
+            fontSize: 42, fontWeight: 700, lineHeight: 1.15,
+            color: '#F2F2F2', letterSpacing: '-1px', marginBottom: 16,
+          }}>
+            Study smarter<br />
+            <span style={{ color: '#4F8EF7' }}>with AI.</span>
+          </h1>
+          <p style={{ color: '#666', fontSize: 15, lineHeight: 1.65, marginBottom: 40, maxWidth: 340 }}>
+            Upload any PDF and instantly get summaries, flashcards, quizzes, and a personal AI tutor.
+          </p>
 
-          {/* Feature pills */}
-          <div className="grid grid-cols-2 gap-3">
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             {features.map(({ icon: Icon, label, color }) => (
-              <div key={label} className="glass flex items-center gap-3 px-4 py-3 rounded-xl">
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: color + '20' }}>
-                  <Icon size={16} style={{ color }} />
+              <div key={label} style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: '11px 14px', borderRadius: 9,
+                background: '#181818', border: '1px solid #242424',
+              }}>
+                <div style={{
+                  width: 28, height: 28, borderRadius: 7,
+                  background: color + '18',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <Icon size={14} color={color} />
                 </div>
-                <span className="text-sm text-[#C0C0E0] font-medium">{label}</span>
-              </div>
-            ))}
-          </div>
-
-          {/* Stats */}
-          <div className="flex gap-8">
-            {[['10x', 'Faster Learning'], ['AI', 'Powered'], ['∞', 'Documents']].map(([num, label]) => (
-              <div key={label}>
-                <div className="font-display font-extrabold text-2xl text-gradient-green">{num}</div>
-                <div className="text-[#9090D0] text-sm">{label}</div>
+                <span style={{ fontSize: 13, color: '#AAAAAA', fontWeight: 500 }}>{label}</span>
               </div>
             ))}
           </div>
         </div>
 
-        <div className="text-[#6060A0] text-sm">
-          © 2024 StudyAI. All rights reserved.
-        </div>
+        <p style={{ fontSize: 12, color: '#444' }}>© 2025 StudyAI</p>
       </div>
 
-      {/* Right Panel - Auth Form */}
-      <div className="flex-1 flex items-center justify-center p-6 relative">
-        <div className="absolute top-8 right-8 w-32 h-32 bg-[#00FF88] rounded-full opacity-[0.04] blur-2xl" />
+      {/* ── Right panel (form) ── */}
+      <div style={{
+        flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px 24px',
+      }}>
+        <div style={{ width: '100%', maxWidth: 380 }} className="fade-up">
 
-        <div className="w-full max-w-md animate-fade-in-up">
           {/* Mobile logo */}
-          <div className="flex items-center gap-3 mb-8 lg:hidden">
-            <div className="w-9 h-9 rounded-xl bg-[#00FF88] flex items-center justify-center">
-              <Brain size={18} className="text-[#0A0A0F]" />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 32 }}
+            className="flex lg:hidden">
+            <div style={{
+              width: 32, height: 32, borderRadius: 8,
+              background: '#4F8EF7', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <Brain size={16} color="#fff" />
             </div>
-            <span className="font-display font-bold text-lg text-white">StudyAI</span>
+            <span style={{ fontWeight: 700, fontSize: 16, color: '#F2F2F2' }}>StudyAI</span>
           </div>
 
-          <div className="card p-8">
-            <h2 className="font-display font-bold text-2xl text-white mb-1">
-              {isSignUp ? 'Create account' : 'Welcome back'}
-            </h2>
-            <p className="text-[#9090D0] text-sm mb-8">
-              {isSignUp ? 'Start your AI-powered study journey' : 'Sign in to continue studying'}
-            </p>
+          {/* Heading */}
+          <h2 style={{ fontSize: 22, fontWeight: 700, color: '#F2F2F2', letterSpacing: '-0.4px', marginBottom: 4 }}>
+            {isSignUp ? 'Create an account' : 'Welcome back'}
+          </h2>
+          <p style={{ fontSize: 13.5, color: '#666', marginBottom: 28 }}>
+            {isSignUp ? 'Start your AI study journey today' : 'Sign in to continue studying'}
+          </p>
 
-            {error && (
-              <div className="mb-4 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
-                {error}
-              </div>
-            )}
-            {message && (
-              <div className="mb-4 px-4 py-3 rounded-xl bg-[#00FF88]/10 border border-[#00FF88]/20 text-[#00FF88] text-sm">
-                {message}
-              </div>
-            )}
-
-            <form onSubmit={handleAuth} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-[#C0C0E0] mb-2">Email</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  required
-                  className="input-field"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[#C0C0E0] mb-2">Password</label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  required
-                  minLength={6}
-                  className="input-field"
-                />
-              </div>
-
-              <button type="submit" disabled={loading} className="btn-primary w-full mt-2">
-                {loading ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <span className="w-4 h-4 border-2 border-t-transparent border-[#0A0A0F] rounded-full animate-spin" />
-                    {isSignUp ? 'Creating account...' : 'Signing in...'}
-                  </span>
-                ) : (
-                  isSignUp ? 'Create Account' : 'Sign In'
-                )}
-              </button>
-            </form>
-
-            <div className="mt-6 pt-6 border-t border-[#252540] text-center">
-              <p className="text-[#9090D0] text-sm">
-                {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}
-                <button
-                  onClick={() => { setIsSignUp(!isSignUp); setError(''); setMessage('') }}
-                  className="text-[#00FF88] font-medium hover:underline"
-                >
-                  {isSignUp ? 'Sign in' : 'Sign up'}
-                </button>
-              </p>
+          {/* Alerts */}
+          {error && (
+            <div style={{
+              padding: '10px 14px', borderRadius: 8, marginBottom: 16,
+              background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.2)',
+              color: '#F87171', fontSize: 13,
+            }}>
+              {error}
             </div>
-          </div>
+          )}
+          {message && (
+            <div style={{
+              padding: '10px 14px', borderRadius: 8, marginBottom: 16,
+              background: 'rgba(110,231,183,0.08)', border: '1px solid rgba(110,231,183,0.2)',
+              color: '#6EE7B7', fontSize: 13,
+            }}>
+              {message}
+            </div>
+          )}
 
-          {/* Demo hint */}
-          <div className="mt-4 text-center">
-            <p className="text-[#6060A0] text-xs">
-              Demo: Use any email/password to create an account
-            </p>
+          {/* Form */}
+          <form onSubmit={handleAuth}>
+            <div style={{ marginBottom: 14 }}>
+              <label className="label">Email</label>
+              <input
+                type="email" required value={email}
+                onChange={e => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                className="input"
+              />
+            </div>
+            <div style={{ marginBottom: 20 }}>
+              <label className="label">Password</label>
+              <input
+                type="password" required minLength={6} value={password}
+                onChange={e => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="input"
+              />
+            </div>
+
+            <button
+              type="submit" disabled={loading}
+              className="btn btn-primary"
+              style={{ width: '100%', padding: '10px 16px', fontSize: 14 }}
+            >
+              {loading ? (
+                <>
+                  <span style={{
+                    width: 14, height: 14, border: '2px solid rgba(255,255,255,0.3)',
+                    borderTopColor: '#fff', borderRadius: '50%', display: 'inline-block',
+                  }} className="spin" />
+                  {isSignUp ? 'Creating account…' : 'Signing in…'}
+                </>
+              ) : (
+                isSignUp ? 'Create Account' : 'Sign In'
+              )}
+            </button>
+          </form>
+
+          {/* Switch mode */}
+          <div style={{
+            marginTop: 24, paddingTop: 20, borderTop: '1px solid #222',
+            textAlign: 'center', fontSize: 13, color: '#666',
+          }}>
+            {isSignUp ? 'Already have an account? ' : "Don't have an account? "}
+            <button
+              onClick={() => { setIsSignUp(!isSignUp); setError(''); setMessage('') }}
+              style={{ color: '#4F8EF7', fontWeight: 500, background: 'none', border: 'none', cursor: 'pointer' }}
+            >
+              {isSignUp ? 'Sign in' : 'Sign up'}
+            </button>
           </div>
         </div>
       </div>
