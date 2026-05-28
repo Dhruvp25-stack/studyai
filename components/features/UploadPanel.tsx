@@ -4,7 +4,10 @@ import { useState, useCallback } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { useApp } from '@/app/(dashboard)/dashboard/layout'
 import { createClient } from '@/lib/supabase'
-import { Upload, FileText, CheckCircle, AlertCircle, Zap, X } from 'lucide-react'
+import {
+  Upload, FileText, CheckCircle, AlertCircle,
+  Zap, X, Shield, Sparkles, BookOpen,
+} from 'lucide-react'
 
 export function UploadPanel() {
   const { user, refreshDocuments, setActiveDoc, documents } = useApp()
@@ -19,15 +22,14 @@ export function UploadPanel() {
     setError('')
     setSuccess('')
     setProgress(10)
-    setProgressLabel('Reading PDF...')
+    setProgressLabel('Reading PDF…')
 
     try {
-      // Upload to our extraction API
       const formData = new FormData()
       formData.append('file', file)
 
       setProgress(30)
-      setProgressLabel('Extracting text...')
+      setProgressLabel('Extracting text…')
 
       const uploadRes = await fetch('/api/upload', {
         method: 'POST',
@@ -42,11 +44,14 @@ export function UploadPanel() {
       const { text, fileName, fileSize, warning } = await uploadRes.json()
 
       setProgress(70)
-      setProgressLabel('Saving to workspace...')
+      setProgressLabel('Saving to workspace…')
 
-      // Save to Supabase
       const supabase = createClient()
-      const title = fileName.replace('.pdf', '').replace(/_/g, ' ').replace(/-/g, ' ')
+      const title = fileName
+        .replace(/\.pdf$/i, '')
+        .replace(/_/g, ' ')
+        .replace(/-/g, ' ')
+        .replace(/\b\w/g, (c: string) => c.toUpperCase())
 
       const { data, error: dbError } = await supabase
         .from('documents')
@@ -64,24 +69,29 @@ export function UploadPanel() {
       if (dbError) throw new Error(dbError.message)
 
       setProgress(100)
-      setProgressLabel('Done!')
+      setProgressLabel('Ready!')
 
       await refreshDocuments()
       setActiveDoc(data as Parameters<typeof setActiveDoc>[0])
-      setSuccess(warning
-        ? `"${title}" uploaded with limited text extraction.`
-        : `"${title}" uploaded! Ready to study.`)
+      setSuccess(
+        warning
+          ? `"${title}" uploaded with limited text extraction.`
+          : `"${title}" uploaded and ready to study!`
+      )
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Upload failed')
     } finally {
       setUploading(false)
-      setTimeout(() => setProgress(0), 1000)
+      setTimeout(() => setProgress(0), 1200)
     }
   }
 
-  const onDrop = useCallback((accepted: File[]) => {
-    if (accepted[0]) processFile(accepted[0])
-  }, [user])
+  const onDrop = useCallback(
+    (accepted: File[]) => {
+      if (accepted[0]) processFile(accepted[0])
+    },
+    [user] // eslint-disable-line
+  )
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -91,105 +101,167 @@ export function UploadPanel() {
   })
 
   return (
-    <div className="max-w-3xl mx-auto animate-fade-in-up">
-      {/* Header */}
+    <div className="max-w-2xl mx-auto animate-fade-in-up">
+      {/* ── Header ──────────────────────────────────────────── */}
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-2">
-          <div className="w-8 h-8 rounded-lg bg-[#00FF88]/15 flex items-center justify-center">
-            <Upload size={16} className="text-[#00FF88]" />
+          <div className="relative w-9 h-9 rounded-xl bg-[--accent-green]/10 border border-[--accent-green]/20 flex items-center justify-center">
+            <Upload size={16} className="text-[--accent-green]" />
+            <span className="pulse-ring absolute inset-0 rounded-xl border border-[--accent-green]/30" />
           </div>
-          <h1 className="font-display font-bold text-2xl text-white">Upload Document</h1>
+          <h1 className="font-display text-3xl text-[--text-primary] leading-none mt-0.5">
+            Upload Document
+          </h1>
         </div>
-        <p className="text-[#9090D0]">Upload a PDF to unlock AI-powered study tools</p>
+        <p className="text-[--text-secondary] text-sm ml-12">
+          Drop a PDF and unlock AI-powered study tools instantly
+        </p>
       </div>
 
-      {/* Drop zone */}
+      {/* ── Drop zone ─────────────────────────────────────── */}
       <div
         {...getRootProps()}
-        className={`upload-zone p-12 text-center cursor-pointer mb-6 ${isDragActive ? 'drag-over' : ''} ${uploading ? 'cursor-not-allowed opacity-70' : ''}`}
+        className={`upload-zone relative p-10 text-center cursor-pointer mb-5 select-none
+          ${isDragActive ? 'drag-over' : ''}
+          ${uploading ? 'cursor-not-allowed opacity-60 pointer-events-none' : ''}`}
       >
         <input {...getInputProps()} />
 
         {uploading ? (
-          <div className="space-y-4">
-            <div className="w-16 h-16 mx-auto">
-              <div className="w-full h-full border-3 border-t-transparent border-[#00FF88] rounded-full animate-spin" style={{ borderWidth: '3px' }} />
+          <div className="space-y-5 py-2">
+            {/* Spinner */}
+            <div className="relative w-14 h-14 mx-auto">
+              <div
+                className="absolute inset-0 rounded-full border-2 border-t-[--accent-green] border-[--border-light] animate-spin"
+              />
+              <div className="absolute inset-2 rounded-full bg-[--accent-green]/8 flex items-center justify-center">
+                <Sparkles size={14} className="text-[--accent-green]" />
+              </div>
             </div>
+
             <div>
-              <p className="text-white font-medium mb-3">{progressLabel}</p>
-              <div className="progress-bar h-2 max-w-xs mx-auto">
+              <p className="text-[--text-primary] font-medium mb-3 text-sm">{progressLabel}</p>
+              <div className="progress-bar h-1.5 max-w-[220px] mx-auto">
                 <div className="progress-fill h-full" style={{ width: `${progress}%` }} />
               </div>
-              <p className="text-[#9090D0] text-sm mt-2">{progress}%</p>
+              <p className="text-[--text-muted] text-xs mt-2">{progress}%</p>
             </div>
           </div>
         ) : (
-          <div className="space-y-4">
-            <div className="w-16 h-16 mx-auto rounded-2xl bg-[#00FF88]/10 flex items-center justify-center border border-[#00FF88]/20">
-              <Upload size={28} className="text-[#00FF88]" />
+          <div className="space-y-4 py-2">
+            {/* Icon */}
+            <div className={`
+              w-16 h-16 mx-auto rounded-2xl flex items-center justify-center
+              border transition-all duration-200
+              ${isDragActive
+                ? 'bg-[--accent-green]/15 border-[--accent-green]/50 scale-110'
+                : 'bg-[--bg-elevated] border-[--border-light]'}
+            `}>
+              <Upload
+                size={26}
+                className={isDragActive ? 'text-[--accent-green]' : 'text-[--text-secondary]'}
+              />
             </div>
+
             <div>
-              <p className="text-white font-medium text-lg mb-1">
-                {isDragActive ? 'Drop your PDF here' : 'Drag & drop your PDF'}
+              <p className="text-[--text-primary] font-semibold text-base mb-1">
+                {isDragActive ? 'Release to upload' : 'Drag & drop your PDF'}
               </p>
-              <p className="text-[#9090D0] text-sm">or click to browse — max 10MB</p>
+              <p className="text-[--text-secondary] text-sm">
+                or{' '}
+                <span className="text-[--accent-green] underline underline-offset-2 cursor-pointer">
+                  browse files
+                </span>
+                {' '}— max 10 MB
+              </p>
             </div>
-            <div className="flex items-center justify-center gap-4 text-xs text-[#6060A0]">
-              <span className="flex items-center gap-1"><FileText size={12} /> PDF only</span>
-              <span>•</span>
-              <span className="flex items-center gap-1"><Zap size={12} /> Instant extraction</span>
-              <span>•</span>
-              <span className="flex items-center gap-1"><CheckCircle size={12} /> Secure</span>
+
+            {/* Feature tags */}
+            <div className="flex items-center justify-center gap-3 pt-1">
+              {[
+                { icon: FileText, label: 'PDF only' },
+                { icon: Zap,      label: 'Instant extraction' },
+                { icon: Shield,   label: 'Secure' },
+              ].map(({ icon: Icon, label }) => (
+                <span
+                  key={label}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-full
+                    bg-[--bg-elevated] border border-[--border] text-[--text-muted] text-xs"
+                >
+                  <Icon size={11} />
+                  {label}
+                </span>
+              ))}
             </div>
           </div>
         )}
       </div>
 
-      {/* Status messages */}
+      {/* ── Status messages ────────────────────────────────── */}
       {error && (
-        <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 mb-4">
-          <AlertCircle size={16} />
-          <span className="text-sm flex-1">{error}</span>
-          <button onClick={() => setError('')}><X size={14} /></button>
-        </div>
-      )}
-      {success && (
-        <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-[#00FF88]/10 border border-[#00FF88]/20 text-[#00FF88] mb-4">
-          <CheckCircle size={16} />
-          <span className="text-sm flex-1">{success}</span>
-          <button onClick={() => setSuccess('')}><X size={14} /></button>
+        <div className="flex items-start gap-3 px-4 py-3 rounded-xl
+          bg-[--accent-rose]/8 border border-[--accent-rose]/20
+          text-[--accent-rose] mb-4 animate-fade-in">
+          <AlertCircle size={15} className="mt-0.5 flex-shrink-0" />
+          <span className="text-sm flex-1 leading-snug">{error}</span>
+          <button
+            onClick={() => setError('')}
+            className="flex-shrink-0 opacity-70 hover:opacity-100 transition-opacity"
+          >
+            <X size={13} />
+          </button>
         </div>
       )}
 
-      {/* Recent documents */}
+      {success && (
+        <div className="flex items-start gap-3 px-4 py-3 rounded-xl
+          bg-[--accent-green]/8 border border-[--accent-green]/20
+          text-[--accent-green] mb-4 animate-fade-in">
+          <CheckCircle size={15} className="mt-0.5 flex-shrink-0" />
+          <span className="text-sm flex-1 leading-snug">{success}</span>
+          <button
+            onClick={() => setSuccess('')}
+            className="flex-shrink-0 opacity-70 hover:opacity-100 transition-opacity"
+          >
+            <X size={13} />
+          </button>
+        </div>
+      )}
+
+      {/* ── Recent documents ───────────────────────────────── */}
       {documents.length > 0 && (
-        <div>
-          <h3 className="font-display font-semibold text-white mb-3 text-sm uppercase tracking-wider text-[#6060A0]">
+        <div className="mt-2">
+          <h3 className="text-[11px] font-semibold tracking-widest uppercase
+            text-[--text-muted] mb-3 px-1">
             Recent Documents
           </h3>
-          <div className="grid gap-3">
+          <div className="space-y-2">
             {documents.slice(0, 5).map(doc => (
               <div
                 key={doc.id}
                 onClick={() => setActiveDoc(doc)}
-                className="card p-4 cursor-pointer flex items-center gap-4 glass-hover"
+                className="card px-4 py-3 cursor-pointer flex items-center gap-4 glass-hover"
               >
-                <div className="w-10 h-10 rounded-xl bg-[#0088FF]/10 flex items-center justify-center flex-shrink-0">
-                  <FileText size={18} className="text-[#0088FF]" />
+                <div className="w-9 h-9 rounded-xl bg-[--accent-blue]/10 border border-[--accent-blue]/15
+                  flex items-center justify-center flex-shrink-0">
+                  <BookOpen size={15} className="text-[--accent-blue]" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-white font-medium text-sm truncate">{doc.title}</p>
-                  <p className="text-[#9090D0] text-xs mt-0.5">
-                    {(doc.file_size / 1024).toFixed(0)}KB · {new Date(doc.created_at).toLocaleDateString()}
+                  <p className="text-[--text-primary] font-medium text-sm truncate">{doc.title}</p>
+                  <p className="text-[--text-muted] text-xs mt-0.5">
+                    {(doc.file_size / 1024).toFixed(0)} KB ·{' '}
+                    {new Date(doc.created_at).toLocaleDateString()}
                   </p>
                 </div>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1.5">
                   {doc.summary && (
-                    <span className="px-2 py-0.5 rounded-full bg-[#00FF88]/10 text-[#00FF88] text-xs border border-[#00FF88]/20">
-                      Summarized
+                    <span className="px-2 py-0.5 rounded-full
+                      bg-[--accent-green]/8 border border-[--accent-green]/15
+                      text-[--accent-green] text-[11px]">
+                      Summarised
                     </span>
                   )}
-                  <Zap size={14} className="text-[#00FF88]" />
+                  <Zap size={13} className="text-[--text-muted]" />
                 </div>
               </div>
             ))}
@@ -197,16 +269,33 @@ export function UploadPanel() {
         </div>
       )}
 
-      {/* Tips */}
-      <div className="mt-8 grid grid-cols-2 gap-4">
-        {[
-          ['📄', 'Best Results', 'Text-based PDFs work best. Scanned images have limited extraction.'],
-          ['⚡', 'Instant AI', 'Once uploaded, get summaries, flashcards, and quizzes in seconds.'],
-        ].map(([emoji, title, desc]) => (
-          <div key={title} className="glass rounded-xl p-4">
-            <div className="text-2xl mb-2">{emoji}</div>
-            <p className="text-white font-medium text-sm mb-1">{title}</p>
-            <p className="text-[#9090D0] text-xs">{desc}</p>
+      {/* ── Tips ───────────────────────────────────────────── */}
+      <div className="mt-8 grid grid-cols-2 gap-3">
+        {([
+          {
+            icon: FileText,
+            color: 'text-[--accent-blue]',
+            bg: 'bg-[--accent-blue]/8 border-[--accent-blue]/15',
+            title: 'Best Results',
+            desc: 'Text-based PDFs work best. Scanned images have limited extraction.',
+          },
+          {
+            icon: Zap,
+            color: 'text-[--accent-green]',
+            bg: 'bg-[--accent-green]/8 border-[--accent-green]/15',
+            title: 'Instant AI',
+            desc: 'Once uploaded, get summaries, flashcards, and quizzes in seconds.',
+          },
+        ] as const).map(({ icon: Icon, color, bg, title, desc }) => (
+          <div
+            key={title}
+            className={`glass rounded-2xl p-4 border ${bg}`}
+          >
+            <div className={`w-8 h-8 rounded-lg ${bg} border flex items-center justify-center mb-3`}>
+              <Icon size={15} className={color} />
+            </div>
+            <p className="text-[--text-primary] font-semibold text-sm mb-1">{title}</p>
+            <p className="text-[--text-secondary] text-xs leading-relaxed">{desc}</p>
           </div>
         ))}
       </div>
