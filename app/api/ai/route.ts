@@ -1,62 +1,66 @@
-// FILE LOCATION: app/api/auth/callback/route.ts
-// This handles the Supabase email confirmation / OAuth redirect callback.
+// FILE LOCATION: app/api/ai/route.ts
+// Handles all AI actions: summarize, flashcards, quiz, explain, chat.
+// Called by SummaryPanel, FlashcardsPanel, QuizPanel, ExplainPanel, ChatPanel.
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
+import {
+  generateSummary,
+  generateFlashcards,
+  generateQuiz,
+  explainSimple,
+  chatWithDocument,
+} from '@/lib/gemini'
 
-export async function GET(request: NextRequest) {
-  const { searchParams, origin } = new URL(request.url)
-  const code = searchParams.get('code')
-  const token_hash = searchParams.get('token_hash')
-  const type = searchParams.get('type')
-  const next = searchParams.get('next') ?? '/dashboard'
+export const maxDuration = 60
 
-  const cookieStore = await cookies()
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json()
+    const { action, content, topic, messages, userMessage } = body
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll()
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options)
-          )
-        },
-      },
+    if (!action) {
+      return NextResponse.json({ error: 'Missing action' }, { status: 400 })
     }
-  )
 
-  if (code) {
-    const { error } = await supabase.auth.exchangeCodeForSession(code)
-    if (!error) {
-      return NextResponse.redirect(`${origin}${next}`)
+    if (!content) {
+      return NextResponse.json({ error: 'Missing document content' }, { status: 400 })
     }
+
+    switch (action) {
+      case 'summarize': {
+        const result = await generateSummary(content)
+        return NextResponse.json({ result })
+      }
+
+      case 'flashcards': {
+        const result = await generateFlashcards(content)
+        return NextResponse.json({ result })
+      }
+
+      case 'quiz': {
+        const result = await generateQuiz(content)
+        return NextResponse.json({ result })
+      }
+
+      case 'explain': {
+        const result = await explainSimple(content, topic)
+        return NextResponse.json({ result })
+      }
+
+      case 'chat': {
+        if (!userMessage) {
+          return NextResponse.json({ error: 'Missing userMessage' }, { status: 400 })
+        }
+        const result = await chatWithDocument(content, messages ?? [], userMessage)
+        return NextResponse.json({ result })
+      }
+
+      default:
+        return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 })
+    }
+  } catch (error: unknown) {
+    console.error('AI route error:', error)
+    const message = error instanceof Error ? error.message : 'AI request failed'
+    return NextResponse.json({ error: message }, { status: 500 })
   }
-
-  if (token_hash && type) {
-    const { error } = await supabase.auth.verifyOtp({
-      token_hash,
-      type: type as
-        | 'email'
-        | 'signup'
-        | 'recovery'
-        | 'invite'
-        | 'email_change'
-        | 'sms'
-        | 'phone_change',
-    })
-    if (!error) {
-      return NextResponse.redirect(`${origin}${next}`)
-    }
-  }
-
-  // Something went wrong — redirect to login with error
-  return NextResponse.redirect(
-    `${origin}/login?error=Could not confirm email. Please try signing up again.`
-  )
 }
