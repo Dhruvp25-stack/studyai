@@ -1,3 +1,4 @@
+// FILE LOCATION: components/features/QuizPanel.tsx
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -6,365 +7,182 @@ import { createClient } from '@/lib/supabase'
 import type { QuizQuestion } from '@/types'
 import { HelpCircle, Sparkles, CheckCircle, XCircle, Trophy, RefreshCw, AlertCircle } from 'lucide-react'
 
-const ROSE = '#FF4D7A'
-const ROSE_DIM = 'rgba(255,77,122,0.08)'
-const ROSE_BORDER = 'rgba(255,77,122,0.18)'
-
 export function QuizPanel() {
   const { activeDoc, user } = useApp()
-  const [questions, setQuestions] = useState<QuizQuestion[]>([])
-  const [current, setCurrent] = useState(0)
-  const [selected, setSelected] = useState<number | null>(null)
-  const [answers, setAnswers] = useState<(number | null)[]>([])
+  const [questions, setQuestions]   = useState<QuizQuestion[]>([])
+  const [current, setCurrent]       = useState(0)
+  const [selected, setSelected]     = useState<number | null>(null)
+  const [answers, setAnswers]       = useState<(number | null)[]>([])
   const [showResult, setShowResult] = useState(false)
   const [generating, setGenerating] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [quizDone, setQuizDone] = useState(false)
+  const [loading, setLoading]       = useState(false)
+  const [error, setError]           = useState('')
+  const [done, setDone]             = useState(false)
 
-  useEffect(() => {
-    if (activeDoc) loadQuestions()
-    resetQuiz()
-  }, [activeDoc?.id]) // eslint-disable-line
+  useEffect(() => { if (activeDoc) loadQ(); reset() }, [activeDoc?.id]) // eslint-disable-line
 
-  const resetQuiz = () => {
-    setCurrent(0); setSelected(null)
-    setAnswers([]); setShowResult(false); setQuizDone(false)
-  }
+  const reset = () => { setCurrent(0); setSelected(null); setAnswers([]); setShowResult(false); setDone(false) }
 
-  const loadQuestions = async () => {
+  const loadQ = async () => {
     if (!activeDoc) return
     setLoading(true)
-    const supabase = createClient()
-    const { data } = await supabase
-      .from('quiz_questions').select('*')
-      .eq('document_id', activeDoc.id).order('created_at')
-    if (data && data.length > 0) {
-      setQuestions(data as QuizQuestion[])
-      setAnswers(new Array(data.length).fill(null))
-    }
+    const { data } = await createClient().from('quiz_questions').select('*').eq('document_id', activeDoc.id).order('created_at')
+    if (data?.length) { setQuestions(data as QuizQuestion[]); setAnswers(new Array(data.length).fill(null)) }
     setLoading(false)
   }
 
-  const generateQuiz = async () => {
+  const generate = async () => {
     if (!activeDoc) return
-    setGenerating(true); setError(''); resetQuiz()
+    setGenerating(true); setError(''); reset()
     try {
-      const res = await fetch('/api/ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'quiz', content: activeDoc.content }),
-      })
+      const res  = await fetch('/api/ai', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'quiz', content: activeDoc.content }) })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
-
-      const supabase = createClient()
-      await supabase.from('quiz_questions').delete().eq('document_id', activeDoc.id)
-
-      const toInsert = data.result.map(
-        (q: Omit<QuizQuestion, 'id' | 'document_id' | 'user_id' | 'created_at'>) => ({
-          document_id: activeDoc.id,
-          user_id: user!.id,
-          question: q.question,
-          options: q.options,
-          correct_answer: q.correct_answer,
-          explanation: q.explanation,
-        })
-      )
-      const { data: inserted } = await supabase.from('quiz_questions').insert(toInsert).select()
-      if (inserted) {
-        setQuestions(inserted as QuizQuestion[])
-        setAnswers(new Array(inserted.length).fill(null))
-      }
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to generate quiz')
-    } finally {
-      setGenerating(false)
-    }
+      const sb = createClient()
+      await sb.from('quiz_questions').delete().eq('document_id', activeDoc.id)
+      const { data: ins } = await sb.from('quiz_questions').insert(data.result.map((q: Omit<QuizQuestion, 'id' | 'document_id' | 'user_id' | 'created_at'>) => ({ document_id: activeDoc.id, user_id: user!.id, ...q }))).select()
+      if (ins) { setQuestions(ins as QuizQuestion[]); setAnswers(new Array(ins.length).fill(null)) }
+    } catch (err: unknown) { setError(err instanceof Error ? err.message : 'Failed') }
+    finally { setGenerating(false) }
   }
 
-  const handleAnswer = (idx: number) => {
+  const answer = (i: number) => {
     if (selected !== null) return
-    setSelected(idx)
-    const newAnswers = [...answers]
-    newAnswers[current] = idx
-    setAnswers(newAnswers)
-    setShowResult(true)
+    setSelected(i); setShowResult(true)
+    const a = [...answers]; a[current] = i; setAnswers(a)
   }
 
-  const handleNext = () => {
-    if (current === questions.length - 1) {
-      setQuizDone(true)
-    } else {
-      const next = current + 1
-      setCurrent(next)
-      setSelected(answers[next])
-      setShowResult(answers[next] !== null)
-    }
+  const next = () => {
+    if (current === questions.length - 1) { setDone(true); return }
+    const n = current + 1; setCurrent(n); setSelected(answers[n]); setShowResult(answers[n] !== null)
   }
 
   const score = answers.filter((a, i) => a === questions[i]?.correct_answer).length
 
-  /* ── No doc ─────────────────────────────────────────────────── */
-  if (!activeDoc) {
-    return (
-      <div className="flex flex-col items-center justify-center py-28 text-center animate-fade-in">
-        <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-5"
-          style={{ background: ROSE_DIM, border: `1px solid ${ROSE_BORDER}` }}>
-          <HelpCircle size={26} style={{ color: ROSE }} />
-        </div>
-        <h2 className="font-display text-2xl text-[--text-primary] mb-2">No Document Selected</h2>
-        <p className="text-[--text-secondary] text-sm">Upload or select a document to take a quiz</p>
-      </div>
-    )
-  }
+  if (!activeDoc) return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60vh', textAlign: 'center' }}>
+      <HelpCircle size={32} color="#333" style={{ marginBottom: 12 }} />
+      <p style={{ color: '#555', fontSize: 14 }}>Select a document to take a quiz</p>
+    </div>
+  )
 
-  /* ── Results screen ─────────────────────────────────────────── */
-  if (quizDone) {
+  /* Results */
+  if (done) {
     const pct = Math.round((score / questions.length) * 100)
-    const accent = pct >= 80 ? '#00E87A' : pct >= 60 ? '#FFB830' : ROSE
-
+    const col = pct >= 80 ? '#6EE7B7' : pct >= 60 ? '#FBBF24' : '#F87171'
     return (
-      <div className="max-w-2xl mx-auto animate-fade-in-up">
-        <div className="card p-10 text-center mb-6">
-          <div
-            className="w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-6"
-            style={{ background: `${accent}18`, border: `2px solid ${accent}30` }}
-          >
-            <Trophy size={34} style={{ color: accent }} />
+      <div style={{ maxWidth: 520, margin: '0 auto' }} className="fade-up">
+        <div className="card" style={{ padding: '40px 32px', textAlign: 'center', marginBottom: 16 }}>
+          <div style={{ width: 60, height: 60, borderRadius: '50%', background: col + '18', border: `2px solid ${col}30`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+            <Trophy size={26} color={col} />
           </div>
-          <h2 className="font-display text-3xl text-[--text-primary] mb-2">Quiz Complete!</h2>
-          <p className="text-[--text-secondary] text-sm mb-6">
-            You answered {score} of {questions.length} correctly
+          <h2 style={{ fontSize: 20, fontWeight: 700, color: '#F2F2F2', marginBottom: 6 }}>Quiz Complete!</h2>
+          <p style={{ fontSize: 13, color: '#555', marginBottom: 20 }}>You answered {score} of {questions.length} correctly</p>
+          <div style={{ fontSize: 52, fontWeight: 800, color: col, marginBottom: 8, letterSpacing: '-2px' }}>{pct}%</div>
+          <p style={{ fontSize: 13, color: '#555', marginBottom: 24 }}>
+            {pct >= 80 ? '🎉 Excellent work!' : pct >= 60 ? '👍 Good job, keep going!' : '📚 Keep studying!'}
           </p>
-
-          <div className="font-display text-6xl font-bold mb-2" style={{ color: accent }}>
-            {pct}%
-          </div>
-          <p className="text-[--text-secondary] text-sm mb-8">
-            {pct >= 80
-              ? '🎉 Excellent! You really know this material!'
-              : pct >= 60
-              ? '👍 Good job! Keep reviewing the tough parts.'
-              : '📚 Keep studying — practice makes perfect.'}
-          </p>
-
-          <div className="grid grid-cols-3 gap-3 mb-8">
-            {([
-              ['Correct', score, '#00E87A'],
-              ['Wrong', questions.length - score, ROSE],
-              ['Total', questions.length, 'var(--text-secondary)'],
-            ] as const).map(([label, val, color]) => (
-              <div key={label} className="glass rounded-xl p-4 border border-[--border]">
-                <div className="font-display text-2xl font-bold mb-1" style={{ color }}>
-                  {val}
-                </div>
-                <div className="text-[--text-muted] text-xs">{label}</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 24 }}>
+            {[['Correct', score, '#6EE7B7'], ['Wrong', questions.length - score, '#F87171'], ['Total', questions.length, '#666']].map(([l, v, c]) => (
+              <div key={l as string} className="card" style={{ padding: '12px 8px', textAlign: 'center' }}>
+                <div style={{ fontSize: 22, fontWeight: 700, color: c as string }}>{v as number}</div>
+                <div style={{ fontSize: 11, color: '#555' }}>{l as string}</div>
               </div>
             ))}
           </div>
-
-          <button
-            onClick={resetQuiz}
-            className="btn-secondary flex items-center gap-2 mx-auto"
-          >
-            <RefreshCw size={13} /> Retake Quiz
-          </button>
+          <button onClick={reset} className="btn btn-secondary" style={{ margin: '0 auto' }}><RefreshCw size={13} /> Retake</button>
         </div>
-
-        {/* Review */}
-        <h3 className="text-[10px] font-semibold tracking-widest uppercase text-[--text-muted] mb-3 px-1">
-          Answer Review
-        </h3>
-        <div className="space-y-2">
-          {questions.map((q, i) => {
-            const correct = answers[i] === q.correct_answer
-            return (
-              <div
-                key={q.id}
-                className="card p-4"
-                style={{
-                  borderColor: correct ? 'rgba(0,232,122,0.18)' : 'rgba(255,77,122,0.18)',
-                  background: correct ? 'rgba(0,232,122,0.04)' : 'rgba(255,77,122,0.04)',
-                }}
-              >
-                <div className="flex items-start gap-3">
-                  {correct
-                    ? <CheckCircle size={15} className="text-[--accent-green] mt-0.5 flex-shrink-0" />
-                    : <XCircle   size={15} style={{ color: ROSE }}              className="mt-0.5 flex-shrink-0" />}
-                  <div className="min-w-0">
-                    <p className="text-[--text-primary] text-sm mb-1.5">{q.question}</p>
-                    <p className="text-[--accent-green] text-xs">✓ {q.options[q.correct_answer]}</p>
-                    {!correct && answers[i] !== null && (
-                      <p className="text-xs mt-0.5" style={{ color: ROSE }}>
-                        ✗ You chose: {q.options[answers[i]!]}
-                      </p>
-                    )}
-                  </div>
+        <p style={{ fontSize: 11, fontWeight: 600, color: '#444', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>Review</p>
+        {questions.map((q, i) => {
+          const ok = answers[i] === q.correct_answer
+          return (
+            <div key={q.id} className="card" style={{ padding: '12px 16px', marginBottom: 8, borderColor: ok ? 'rgba(110,231,183,0.2)' : 'rgba(248,113,113,0.2)' }}>
+              <div style={{ display: 'flex', gap: 10 }}>
+                {ok ? <CheckCircle size={14} color="#6EE7B7" style={{ flexShrink: 0, marginTop: 2 }} /> : <XCircle size={14} color="#F87171" style={{ flexShrink: 0, marginTop: 2 }} />}
+                <div>
+                  <p style={{ fontSize: 13, color: '#E0E0E0', marginBottom: 4 }}>{q.question}</p>
+                  <p style={{ fontSize: 12, color: '#6EE7B7' }}>✓ {q.options[q.correct_answer]}</p>
+                  {!ok && answers[i] !== null && <p style={{ fontSize: 12, color: '#F87171' }}>✗ {q.options[answers[i]!]}</p>}
                 </div>
               </div>
-            )
-          })}
-        </div>
+            </div>
+          )
+        })}
       </div>
     )
   }
 
   const busy = loading || generating
 
-  /* ── Main quiz ──────────────────────────────────────────────── */
   return (
-    <div className="max-w-2xl mx-auto animate-fade-in-up">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-7">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center"
-            style={{ background: ROSE_DIM, border: `1px solid ${ROSE_BORDER}` }}>
-            <HelpCircle size={16} style={{ color: ROSE }} />
-          </div>
-          <h1 className="font-display text-3xl text-[--text-primary] leading-none mt-0.5">Quiz Mode</h1>
-        </div>
-        <button
-          onClick={generateQuiz}
-          disabled={busy}
-          className="btn-primary flex items-center gap-2 text-sm py-2 px-4"
-          style={{ background: `linear-gradient(135deg, ${ROSE}, #CC003D)` }}
-        >
-          {generating
-            ? <span className="w-3.5 h-3.5 border-2 border-t-transparent border-white rounded-full animate-spin" />
-            : <Sparkles size={13} />}
-          {generating ? 'Generating…' : questions.length > 0 ? 'New Quiz' : 'Generate Quiz'}
+    <div style={{ maxWidth: 520, margin: '0 auto' }} className="fade-up">
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: '#F2F2F2', letterSpacing: '-0.4px' }}>Quiz Mode</h1>
+        <button onClick={generate} disabled={busy} className="btn btn-primary">
+          {generating ? <span style={{ width: 13, height: 13, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%' }} className="spin" /> : <Sparkles size={13} />}
+          {generating ? 'Generating…' : questions.length ? 'New Quiz' : 'Generate Quiz'}
         </button>
       </div>
 
-      {/* Error */}
-      {error && (
-        <div className="flex items-center gap-3 mb-5 px-4 py-3 rounded-xl
-          bg-[--accent-rose]/8 border border-[--accent-rose]/20 text-[--accent-rose] text-sm">
-          <AlertCircle size={14} className="flex-shrink-0" /> {error}
-        </div>
-      )}
+      {error && <div style={{ display: 'flex', gap: 9, padding: '10px 14px', borderRadius: 8, marginBottom: 16, background: 'rgba(248,113,113,0.07)', border: '1px solid rgba(248,113,113,0.18)', color: '#F87171', fontSize: 13 }}><AlertCircle size={14} />{error}</div>}
 
-      {/* Loading */}
       {busy ? (
-        <div className="card p-10 text-center">
-          <div className="w-12 h-12 rounded-full border-2 border-t-transparent animate-spin mx-auto mb-4"
-            style={{ borderColor: `${ROSE} transparent transparent transparent` }} />
-          <p className="text-[--text-secondary] text-sm">
-            {generating ? 'Crafting quiz questions with Gemini AI…' : 'Loading…'}
-          </p>
+        <div className="card" style={{ padding: 40, textAlign: 'center' }}>
+          <div style={{ width: 36, height: 36, border: '3px solid #1E1E1E', borderTopColor: '#4F8EF7', borderRadius: '50%', margin: '0 auto 12px' }} className="spin" />
+          <p style={{ color: '#555', fontSize: 13 }}>{generating ? 'Crafting quiz questions…' : 'Loading…'}</p>
         </div>
 
       ) : questions.length > 0 ? (
         <>
-          {/* Progress */}
-          <div className="flex items-center gap-3 mb-6">
-            <div className="progress-bar flex-1 h-1">
-              <div
-                className="progress-fill h-full transition-all duration-500"
-                style={{
-                  width: `${((current + 1) / questions.length) * 100}%`,
-                  background: `linear-gradient(90deg, ${ROSE}, #CC003D)`,
-                }}
-              />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+            <div className="progress-track" style={{ flex: 1, height: 3 }}>
+              <div className="progress-fill" style={{ height: '100%', width: `${((current + 1) / questions.length) * 100}%` }} />
             </div>
-            <span className="text-[--text-muted] text-xs font-mono tabular-nums">
-              {current + 1}/{questions.length}
-            </span>
+            <span style={{ fontSize: 12, color: '#555' }}>{current + 1}/{questions.length}</span>
           </div>
 
-          {/* Question card */}
-          <div className="card p-6 mb-4">
-            <span
-              className="inline-block text-[10px] font-semibold tracking-widest uppercase
-                px-2.5 py-1 rounded-full mb-4"
-              style={{ background: ROSE_DIM, color: ROSE, border: `1px solid ${ROSE_BORDER}` }}
-            >
-              Question {current + 1}
-            </span>
-            <p className="font-display text-xl text-[--text-primary] leading-relaxed">
-              {questions[current]?.question}
-            </p>
+          <div className="card" style={{ padding: '20px 22px', marginBottom: 14 }}>
+            <span style={{ fontSize: 10, fontWeight: 600, color: '#555', letterSpacing: '0.08em', textTransform: 'uppercase', display: 'block', marginBottom: 10 }}>Question {current + 1}</span>
+            <p style={{ fontSize: 16, fontWeight: 500, color: '#F2F2F2', lineHeight: 1.55 }}>{questions[current]?.question}</p>
           </div>
 
-          {/* Options */}
-          <div className="space-y-2.5 mb-5">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 }}>
             {questions[current]?.options.map((opt, i) => {
-              let cls = 'quiz-option'
+              let cls = 'quiz-opt'
               if (showResult) {
                 if (i === questions[current].correct_answer) cls += ' correct'
                 else if (i === selected) cls += ' incorrect'
               }
               return (
-                <button key={i} className={cls} onClick={() => handleAnswer(i)} disabled={showResult}>
-                  <span className="font-mono text-xs mr-3 opacity-50">
-                    {String.fromCharCode(65 + i)}.
-                  </span>
+                <button key={i} className={cls} onClick={() => answer(i)} disabled={showResult}>
+                  <span style={{ fontSize: 11, fontFamily: 'monospace', marginRight: 10, opacity: 0.5 }}>{String.fromCharCode(65+i)}.</span>
                   {opt}
                 </button>
               )
             })}
           </div>
 
-          {/* Explanation */}
           {showResult && (
-            <div
-              className="p-4 rounded-xl mb-5 animate-fade-in"
-              style={
-                selected === questions[current]?.correct_answer
-                  ? { background: 'rgba(0,232,122,0.07)', border: '1px solid rgba(0,232,122,0.18)' }
-                  : { background: 'rgba(255,77,122,0.07)', border: `1px solid ${ROSE_BORDER}` }
-              }
-            >
-              <div className="flex items-center gap-2 mb-2">
-                {selected === questions[current]?.correct_answer
-                  ? <CheckCircle size={14} className="text-[--accent-green]" />
-                  : <XCircle     size={14} style={{ color: ROSE }} />}
-                <span
-                  className="text-sm font-semibold"
-                  style={{
-                    color: selected === questions[current]?.correct_answer
-                      ? 'var(--accent-green)' : ROSE,
-                  }}
-                >
-                  {selected === questions[current]?.correct_answer ? 'Correct!' : 'Incorrect'}
-                </span>
+            <>
+              <div style={{ padding: '12px 16px', borderRadius: 9, marginBottom: 14, background: selected === questions[current]?.correct_answer ? 'rgba(110,231,183,0.07)' : 'rgba(248,113,113,0.07)', border: `1px solid ${selected === questions[current]?.correct_answer ? 'rgba(110,231,183,0.2)' : 'rgba(248,113,113,0.2)'}` }} className="fade-in">
+                <p style={{ fontSize: 13, fontWeight: 600, color: selected === questions[current]?.correct_answer ? '#6EE7B7' : '#F87171', marginBottom: 4 }}>
+                  {selected === questions[current]?.correct_answer ? '✓ Correct!' : '✗ Incorrect'}
+                </p>
+                <p style={{ fontSize: 13, color: '#888', lineHeight: 1.55 }}>{questions[current]?.explanation}</p>
               </div>
-              <p className="text-[--text-secondary] text-sm leading-relaxed">
-                {questions[current]?.explanation}
-              </p>
-            </div>
-          )}
-
-          {showResult && (
-            <button
-              onClick={handleNext}
-              className="btn-primary w-full"
-              style={{ background: `linear-gradient(135deg, ${ROSE}, #CC003D)` }}
-            >
-              {current === questions.length - 1 ? 'See Results' : 'Next Question →'}
-            </button>
+              <button onClick={next} className="btn btn-primary" style={{ width: '100%' }}>
+                {current === questions.length - 1 ? 'See Results' : 'Next Question →'}
+              </button>
+            </>
           )}
         </>
 
       ) : (
-        /* Empty state */
-        <div className="card p-12 text-center border-dashed">
-          <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-5"
-            style={{ background: ROSE_DIM, border: `1px solid ${ROSE_BORDER}` }}>
-            <HelpCircle size={24} style={{ color: ROSE }} />
-          </div>
-          <h3 className="font-display text-xl text-[--text-primary] mb-2">Test Your Knowledge</h3>
-          <p className="text-[--text-secondary] text-sm mb-6">
-            Generate a quiz to reinforce what you&apos;ve learned from this document.
-          </p>
-          <button
-            onClick={generateQuiz}
-            className="btn-primary mx-auto inline-flex items-center gap-2"
-            style={{ background: `linear-gradient(135deg, ${ROSE}, #CC003D)` }}
-          >
-            <Sparkles size={15} /> Generate Quiz
-          </button>
+        <div className="card" style={{ padding: '56px 32px', textAlign: 'center', borderStyle: 'dashed' }}>
+          <HelpCircle size={28} color="#333" style={{ margin: '0 auto 14px' }} />
+          <h3 style={{ fontSize: 16, fontWeight: 600, color: '#E0E0E0', marginBottom: 6 }}>Test Your Knowledge</h3>
+          <p style={{ fontSize: 13.5, color: '#555', marginBottom: 20 }}>Generate a quiz to reinforce what you've learned.</p>
+          <button onClick={generate} className="btn btn-primary" style={{ margin: '0 auto' }}><Sparkles size={13} /> Generate Quiz</button>
         </div>
       )}
     </div>
