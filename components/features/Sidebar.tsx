@@ -8,21 +8,30 @@ import type { TabType } from '@/types'
 import {
   Brain, Upload, FileText, Layers, HelpCircle,
   Lightbulb, MessageCircle, LogOut, ChevronLeft,
-  ChevronRight, Trash2, Plus, File
+  ChevronRight, Trash2, Plus, File,
 } from 'lucide-react'
 
-const NAV_ITEMS: { id: TabType; label: string; icon: typeof Upload; color: string }[] = [
-  { id: 'upload', label: 'Upload PDF', icon: Upload, color: '#00FF88' },
-  { id: 'summary', label: 'AI Summary', icon: FileText, color: '#0088FF' },
-  { id: 'flashcards', label: 'Flashcards', icon: Layers, color: '#FFEE00' },
-  { id: 'quiz', label: 'Quiz Mode', icon: HelpCircle, color: '#FF0088' },
-  { id: 'explain', label: 'Explain Simple', icon: Lightbulb, color: '#FF8800' },
-  { id: 'chat', label: 'AI Tutor Chat', icon: MessageCircle, color: '#8800FF' },
+const NAV_ITEMS: {
+  id: TabType
+  label: string
+  icon: typeof Upload
+  color: string
+  accentBg: string
+}[] = [
+  { id: 'upload',    label: 'Upload PDF',    icon: Upload,        color: '#00E87A', accentBg: 'rgba(0,232,122,0.08)'  },
+  { id: 'summary',   label: 'AI Summary',    icon: FileText,      color: '#2D9CFF', accentBg: 'rgba(45,156,255,0.08)' },
+  { id: 'flashcards',label: 'Flashcards',    icon: Layers,        color: '#FFB830', accentBg: 'rgba(255,184,48,0.08)'  },
+  { id: 'quiz',      label: 'Quiz Mode',     icon: HelpCircle,    color: '#FF4D7A', accentBg: 'rgba(255,77,122,0.08)'  },
+  { id: 'explain',   label: 'Explain Simple',icon: Lightbulb,     color: '#FF8C42', accentBg: 'rgba(255,140,66,0.08)'  },
+  { id: 'chat',      label: 'AI Tutor Chat', icon: MessageCircle, color: '#9B59FF', accentBg: 'rgba(155,89,255,0.08)'  },
 ]
 
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false)
-  const { user, documents, activeDoc, setActiveDoc, activeTab, setActiveTab, refreshDocuments } = useApp()
+  const {
+    user, documents, activeDoc,
+    setActiveDoc, activeTab, setActiveTab, refreshDocuments,
+  } = useApp()
   const router = useRouter()
 
   const handleSignOut = async () => {
@@ -42,75 +51,101 @@ export function Sidebar() {
 
   return (
     <aside
-      className="relative flex flex-col border-r border-[#252540] bg-[#0F0F1A] transition-all duration-300 ease-in-out"
-      style={{ width: collapsed ? '64px' : '260px', minWidth: collapsed ? '64px' : '260px' }}
+      className="relative flex flex-col border-r border-[--border] bg-[--bg-surface] transition-all duration-300 ease-in-out"
+      style={{ width: collapsed ? '64px' : '252px', minWidth: collapsed ? '64px' : '252px' }}
     >
-      {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-5 border-b border-[#252540]">
-        <div className="w-8 h-8 rounded-lg bg-[#00FF88] flex items-center justify-center flex-shrink-0">
-          <Brain size={16} className="text-[#0A0A0F]" />
+      {/* ── Logo header ─────────────────────────────────────── */}
+      <div className="flex items-center gap-3 px-4 py-[18px] border-b border-[--border]">
+        <div className="w-8 h-8 rounded-xl bg-[--accent-green] flex items-center justify-center flex-shrink-0 shadow-[0_0_14px_rgba(0,232,122,0.35)]">
+          <Brain size={15} className="text-[#03030A]" />
         </div>
         {!collapsed && (
-          <span className="font-display font-bold text-white text-base">StudyAI</span>
+          <span className="font-display text-lg text-[--text-primary] leading-none mt-0.5">
+            StudyAI
+          </span>
         )}
       </div>
 
-      {/* Collapse toggle */}
+      {/* ── Collapse toggle ──────────────────────────────────── */}
       <button
         onClick={() => setCollapsed(!collapsed)}
-        className="absolute -right-3 top-16 z-10 w-6 h-6 rounded-full bg-[#252540] border border-[#353570] flex items-center justify-center hover:bg-[#353570] transition-colors"
+        className="absolute -right-3 top-[62px] z-10 w-6 h-6 rounded-full
+          bg-[--bg-elevated] border border-[--border-light]
+          flex items-center justify-center
+          hover:border-[--accent-green]/40 hover:text-[--accent-green]
+          text-[--text-muted] transition-colors"
       >
-        {collapsed ? <ChevronRight size={12} className="text-[#9090D0]" /> : <ChevronLeft size={12} className="text-[#9090D0]" />}
+        {collapsed
+          ? <ChevronRight size={11} />
+          : <ChevronLeft  size={11} />
+        }
       </button>
 
-      <div className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
-        {/* Navigation */}
-        {NAV_ITEMS.map(({ id, label, icon: Icon, color }) => (
-          <button
-            key={id}
-            onClick={() => setActiveTab(id)}
-            disabled={id !== 'upload' && !activeDoc}
-            className={`nav-item w-full ${activeTab === id ? 'active' : ''} ${id !== 'upload' && !activeDoc ? 'opacity-40 cursor-not-allowed' : ''}`}
-            title={collapsed ? label : undefined}
-          >
-            <Icon size={16} style={{ color: activeTab === id ? color : undefined }} className="flex-shrink-0" />
-            {!collapsed && <span>{label}</span>}
-            {!collapsed && id !== 'upload' && !activeDoc && (
-              <span className="ml-auto text-[10px] text-[#6060A0]">No doc</span>
-            )}
-          </button>
-        ))}
+      {/* ── Main nav ─────────────────────────────────────────── */}
+      <div className="flex-1 overflow-y-auto px-2.5 py-3 space-y-0.5">
+        {NAV_ITEMS.map(({ id, label, icon: Icon, color, accentBg }) => {
+          const isActive   = activeTab === id
+          const isDisabled = id !== 'upload' && !activeDoc
 
-        {/* Documents section */}
+          return (
+            <button
+              key={id}
+              onClick={() => setActiveTab(id)}
+              disabled={isDisabled}
+              title={collapsed ? label : undefined}
+              className={`nav-item w-full ${isActive ? 'active' : ''} ${isDisabled ? 'opacity-35 cursor-not-allowed' : ''}`}
+              style={isActive ? { background: accentBg, borderColor: `${color}28`, color } : undefined}
+            >
+              <Icon
+                size={15}
+                className="flex-shrink-0"
+                style={{ color: isActive ? color : undefined }}
+              />
+              {!collapsed && <span className="flex-1 text-left">{label}</span>}
+              {!collapsed && isDisabled && (
+                <span className="text-[10px] text-[--text-muted] font-mono">No doc</span>
+              )}
+            </button>
+          )
+        })}
+
+        {/* ── Documents list ─────────────────────────────────── */}
         {!collapsed && documents.length > 0 && (
-          <div className="mt-6">
+          <div className="pt-5">
             <div className="flex items-center justify-between px-2 mb-2">
-              <span className="text-xs font-semibold text-[#6060A0] uppercase tracking-wider">Documents</span>
+              <span className="text-[10px] font-semibold tracking-widest uppercase text-[--text-muted]">
+                Documents
+              </span>
               <button
                 onClick={() => setActiveTab('upload')}
-                className="w-5 h-5 rounded flex items-center justify-center hover:bg-[#252540] text-[#6060A0] hover:text-[#00FF88] transition-colors"
+                className="w-5 h-5 rounded flex items-center justify-center
+                  hover:bg-[--bg-hover] text-[--text-muted]
+                  hover:text-[--accent-green] transition-colors"
               >
-                <Plus size={12} />
+                <Plus size={11} />
               </button>
             </div>
-            <div className="space-y-1">
+
+            <div className="space-y-px">
               {documents.slice(0, 8).map(doc => (
                 <div
                   key={doc.id}
                   onClick={() => setActiveDoc(doc)}
-                  className={`group flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-all ${
-                    activeDoc?.id === doc.id
-                      ? 'bg-[#00FF88]/08 border border-[#00FF88]/15 text-[#00FF88]'
-                      : 'text-[#9090D0] hover:bg-[#252540] hover:text-white'
-                  }`}
+                  className={`group flex items-center gap-2 px-3 py-2.5 rounded-xl
+                    cursor-pointer transition-all
+                    ${activeDoc?.id === doc.id
+                      ? 'bg-[--accent-green]/07 text-[--accent-green]'
+                      : 'text-[--text-secondary] hover:bg-[--bg-hover] hover:text-[--text-primary]'
+                    }`}
                 >
-                  <File size={13} className="flex-shrink-0" />
-                  <span className="text-xs truncate flex-1">{doc.title}</span>
+                  <File size={12} className="flex-shrink-0 opacity-70" />
+                  <span className="text-xs truncate flex-1 font-medium">{doc.title}</span>
                   <button
                     onClick={(e) => handleDeleteDoc(doc.id, e)}
-                    className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 transition-opacity"
+                    className="opacity-0 group-hover:opacity-100 text-[--accent-rose]/70
+                      hover:text-[--accent-rose] transition-all flex-shrink-0"
                   >
-                    <Trash2 size={11} />
+                    <Trash2 size={10} />
                   </button>
                 </div>
               ))}
@@ -119,24 +154,25 @@ export function Sidebar() {
         )}
       </div>
 
-      {/* Footer - user & sign out */}
-      <div className="px-3 py-4 border-t border-[#252540]">
+      {/* ── Footer ───────────────────────────────────────────── */}
+      <div className="px-2.5 py-3 border-t border-[--border]">
         {!collapsed && (
-          <div className="flex items-center gap-2 px-3 py-2 mb-2 rounded-lg bg-[#16162A]">
-            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#00FF88] to-[#0088FF] flex items-center justify-center text-[#0A0A0F] text-xs font-bold flex-shrink-0">
+          <div className="flex items-center gap-2.5 px-3 py-2.5 mb-1.5 rounded-xl bg-[--bg-elevated]">
+            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[--accent-green] to-[--accent-blue]
+              flex items-center justify-center text-[#03030A] text-xs font-bold flex-shrink-0">
               {user?.email?.[0]?.toUpperCase() ?? 'U'}
             </div>
-            <span className="text-xs text-[#9090D0] truncate flex-1">
+            <span className="text-xs text-[--text-secondary] truncate flex-1">
               {user?.email}
             </span>
           </div>
         )}
         <button
           onClick={handleSignOut}
-          className={`nav-item w-full text-red-400 hover:text-red-300 hover:bg-red-400/08`}
           title={collapsed ? 'Sign out' : undefined}
+          className="nav-item w-full text-[--text-muted] hover:text-[--accent-rose] hover:bg-[--accent-rose]/06"
         >
-          <LogOut size={16} className="flex-shrink-0" />
+          <LogOut size={14} className="flex-shrink-0" />
           {!collapsed && <span>Sign Out</span>}
         </button>
       </div>
