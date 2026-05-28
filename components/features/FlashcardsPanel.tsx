@@ -4,7 +4,11 @@ import { useState, useEffect } from 'react'
 import { useApp } from '@/app/(dashboard)/dashboard/layout'
 import { createClient } from '@/lib/supabase'
 import type { Flashcard } from '@/types'
-import { Layers, Sparkles, ChevronLeft, ChevronRight, RotateCcw, Shuffle } from 'lucide-react'
+import { Layers, Sparkles, ChevronLeft, ChevronRight, RotateCcw, Shuffle, AlertCircle } from 'lucide-react'
+
+const AMBER = '#FFB830'
+const AMBER_DIM = 'rgba(255,184,48,0.08)'
+const AMBER_BORDER = 'rgba(255,184,48,0.18)'
 
 export function FlashcardsPanel() {
   const { activeDoc, user } = useApp()
@@ -19,7 +23,7 @@ export function FlashcardsPanel() {
     if (activeDoc) loadCards()
     setFlipped(false)
     setCurrent(0)
-  }, [activeDoc?.id])
+  }, [activeDoc?.id]) // eslint-disable-line
 
   const loadCards = async () => {
     if (!activeDoc) return
@@ -38,7 +42,6 @@ export function FlashcardsPanel() {
     if (!activeDoc) return
     setGenerating(true)
     setError('')
-
     try {
       const res = await fetch('/api/ai', {
         method: 'POST',
@@ -49,17 +52,14 @@ export function FlashcardsPanel() {
       if (!res.ok) throw new Error(data.error)
 
       const supabase = createClient()
-      // Delete old cards for this doc
       await supabase.from('flashcards').delete().eq('document_id', activeDoc.id)
 
-      // Insert new cards
       const toInsert = data.result.map((card: { front: string; back: string }) => ({
         document_id: activeDoc.id,
         user_id: user!.id,
         front: card.front,
         back: card.back,
       }))
-
       const { data: inserted } = await supabase.from('flashcards').insert(toInsert).select()
       if (inserted) setCards(inserted as Flashcard[])
       setCurrent(0)
@@ -72,118 +72,147 @@ export function FlashcardsPanel() {
   }
 
   const shuffle = () => {
-    const shuffled = [...cards].sort(() => Math.random() - 0.5)
-    setCards(shuffled)
+    setCards(prev => [...prev].sort(() => Math.random() - 0.5))
     setCurrent(0)
     setFlipped(false)
   }
 
-  const next = () => {
-    setCurrent(p => Math.min(p + 1, cards.length - 1))
-    setFlipped(false)
-  }
-
-  const prev = () => {
-    setCurrent(p => Math.max(p - 1, 0))
-    setFlipped(false)
-  }
+  const next = () => { setCurrent(p => Math.min(p + 1, cards.length - 1)); setFlipped(false) }
+  const prev = () => { setCurrent(p => Math.max(p - 1, 0)); setFlipped(false) }
 
   if (!activeDoc) {
     return (
-      <div className="flex flex-col items-center justify-center py-24 text-center">
-        <div className="w-16 h-16 rounded-2xl bg-[#FFEE00]/10 flex items-center justify-center mb-4">
-          <Layers size={28} className="text-[#FFEE00]" />
+      <div className="flex flex-col items-center justify-center py-28 text-center animate-fade-in">
+        <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-5"
+          style={{ background: AMBER_DIM, border: `1px solid ${AMBER_BORDER}` }}>
+          <Layers size={26} style={{ color: AMBER }} />
         </div>
-        <h2 className="font-display font-bold text-xl text-white mb-2">No Document Selected</h2>
-        <p className="text-[#9090D0]">Upload or select a document to create flashcards</p>
+        <h2 className="font-display text-2xl text-[--text-primary] mb-2">No Document Selected</h2>
+        <p className="text-[--text-secondary] text-sm">Upload or select a document to create flashcards</p>
       </div>
     )
   }
 
+  const busy = loading || generating
+
   return (
     <div className="max-w-2xl mx-auto animate-fade-in-up">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-7">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-[#FFEE00]/15 flex items-center justify-center">
-            <Layers size={16} className="text-[#FFEE00]" />
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center"
+            style={{ background: AMBER_DIM, border: `1px solid ${AMBER_BORDER}` }}>
+            <Layers size={16} style={{ color: AMBER }} />
           </div>
           <div>
-            <h1 className="font-display font-bold text-2xl text-white">Flashcards</h1>
+            <h1 className="font-display text-3xl text-[--text-primary] leading-none mt-0.5">Flashcards</h1>
             {cards.length > 0 && (
-              <p className="text-[#9090D0] text-xs">{cards.length} cards · {activeDoc.title}</p>
+              <p className="text-[--text-secondary] text-xs mt-0.5">
+                {cards.length} cards · {activeDoc.title}
+              </p>
             )}
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
           {cards.length > 1 && (
             <button onClick={shuffle} className="btn-secondary flex items-center gap-2 text-sm py-2 px-3">
-              <Shuffle size={14} />
-              Shuffle
+              <Shuffle size={13} /> Shuffle
             </button>
           )}
           <button
             onClick={generateCards}
-            disabled={generating}
+            disabled={busy}
             className="btn-primary flex items-center gap-2 text-sm py-2 px-4"
+            style={{ background: `linear-gradient(135deg, ${AMBER}, #FF9500)` }}
           >
-            {generating ? (
-              <span className="w-4 h-4 border-2 border-t-transparent border-[#0A0A0F] rounded-full animate-spin" />
-            ) : (
-              <Sparkles size={14} />
-            )}
-            {generating ? 'Generating...' : cards.length > 0 ? 'Regenerate' : 'Generate Cards'}
+            {generating
+              ? <span className="w-3.5 h-3.5 border-2 border-t-transparent border-[#03030A] rounded-full animate-spin" />
+              : <Sparkles size={13} />}
+            {generating ? 'Generating…' : cards.length > 0 ? 'Regenerate' : 'Generate Cards'}
           </button>
         </div>
       </div>
 
+      {/* Error */}
       {error && (
-        <div className="mb-4 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
-          {error}
+        <div className="flex items-center gap-3 mb-5 px-4 py-3 rounded-xl
+          bg-[--accent-rose]/8 border border-[--accent-rose]/20 text-[--accent-rose] text-sm">
+          <AlertCircle size={14} className="flex-shrink-0" /> {error}
         </div>
       )}
 
-      {loading || generating ? (
-        <div className="card p-8 text-center">
-          <div className="w-12 h-12 border-2 border-t-transparent border-[#FFEE00] rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-[#9090D0]">
-            {generating ? 'Creating flashcards with Gemini AI...' : 'Loading flashcards...'}
+      {/* Loading */}
+      {busy ? (
+        <div className="card p-10 text-center">
+          <div className="w-12 h-12 rounded-full border-2 border-t-transparent animate-spin mx-auto mb-4"
+            style={{ borderColor: `${AMBER} transparent transparent transparent` }} />
+          <p className="text-[--text-secondary] text-sm">
+            {generating ? 'Creating flashcards with Gemini AI…' : 'Loading flashcards…'}
           </p>
         </div>
+
       ) : cards.length > 0 ? (
         <>
-          {/* Progress */}
-          <div className="flex items-center gap-3 mb-4">
-            <div className="progress-bar flex-1 h-1.5">
-              <div className="progress-fill h-full" style={{ width: `${((current + 1) / cards.length) * 100}%`, background: 'linear-gradient(90deg, #FFEE00, #FFB800)' }} />
+          {/* Progress bar */}
+          <div className="flex items-center gap-3 mb-5">
+            <div className="progress-bar flex-1 h-1">
+              <div
+                className="progress-fill h-full transition-all duration-500"
+                style={{
+                  width: `${((current + 1) / cards.length) * 100}%`,
+                  background: `linear-gradient(90deg, ${AMBER}, #FF9500)`,
+                }}
+              />
             </div>
-            <span className="text-[#9090D0] text-xs font-mono whitespace-nowrap">{current + 1} / {cards.length}</span>
+            <span className="text-[--text-muted] text-xs font-mono tabular-nums">
+              {current + 1} / {cards.length}
+            </span>
           </div>
 
-          {/* Flashcard */}
-          <div className="perspective mb-6" style={{ height: '280px' }}>
+          {/* Card */}
+          <div className="perspective mb-6" style={{ height: '260px' }}>
             <div
-              className={`flip-card relative w-full h-full cursor-pointer`}
-              style={{ transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)', transition: 'transform 0.6s cubic-bezier(0.4, 0, 0.2, 1)', transformStyle: 'preserve-3d' }}
-              onClick={() => setFlipped(!flipped)}
+              className="relative w-full h-full cursor-pointer"
+              style={{
+                transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
+                transition: 'transform 0.55s cubic-bezier(0.4,0,0.2,1)',
+                transformStyle: 'preserve-3d',
+              }}
+              onClick={() => setFlipped(f => !f)}
             >
               {/* Front */}
-              <div className="flip-face absolute inset-0 card flex flex-col items-center justify-center p-8 text-center" style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' }}>
-                <div className="absolute top-4 left-4 px-2 py-0.5 rounded-full bg-[#FFEE00]/10 text-[#FFEE00] text-xs border border-[#FFEE00]/20">
+              <div
+                className="absolute inset-0 card flex flex-col items-center justify-center p-8 text-center"
+                style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' }}
+              >
+                <span className="absolute top-4 left-4 text-[10px] font-semibold tracking-widest uppercase
+                  px-2.5 py-1 rounded-full"
+                  style={{ background: AMBER_DIM, color: AMBER, border: `1px solid ${AMBER_BORDER}` }}>
                   Question
-                </div>
-                <p className="font-display font-semibold text-xl text-white leading-relaxed">
+                </span>
+                <p className="font-display text-xl text-[--text-primary] leading-relaxed">
                   {cards[current]?.front}
                 </p>
-                <p className="text-[#6060A0] text-xs mt-4">Click to reveal answer</p>
+                <p className="text-[--text-muted] text-xs mt-5">Tap to reveal answer</p>
               </div>
 
               {/* Back */}
-              <div className="flip-face flip-back absolute inset-0 rounded-2xl flex flex-col items-center justify-center p-8 text-center border border-[#FFEE00]/20" style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', background: 'linear-gradient(135deg, rgba(255,238,0,0.06), rgba(255,184,0,0.04))' }}>
-                <div className="absolute top-4 left-4 px-2 py-0.5 rounded-full bg-[#FFEE00]/10 text-[#FFEE00] text-xs border border-[#FFEE00]/20">
+              <div
+                className="absolute inset-0 rounded-[--radius-lg] flex flex-col items-center justify-center p-8 text-center"
+                style={{
+                  backfaceVisibility: 'hidden',
+                  WebkitBackfaceVisibility: 'hidden',
+                  transform: 'rotateY(180deg)',
+                  background: `linear-gradient(135deg, ${AMBER_DIM}, rgba(255,149,0,0.04))`,
+                  border: `1px solid ${AMBER_BORDER}`,
+                }}
+              >
+                <span className="absolute top-4 left-4 text-[10px] font-semibold tracking-widest uppercase
+                  px-2.5 py-1 rounded-full"
+                  style={{ background: AMBER_DIM, color: AMBER, border: `1px solid ${AMBER_BORDER}` }}>
                   Answer
-                </div>
-                <p className="font-body text-lg text-[#C0C0E0] leading-relaxed">
+                </span>
+                <p className="text-[--text-primary] text-lg leading-relaxed">
                   {cards[current]?.back}
                 </p>
               </div>
@@ -191,58 +220,73 @@ export function FlashcardsPanel() {
           </div>
 
           {/* Navigation */}
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-8">
             <button
               onClick={prev}
               disabled={current === 0}
-              className="btn-secondary flex items-center gap-2 py-2 px-4 disabled:opacity-30"
+              className="btn-secondary flex items-center gap-2 py-2 px-4 disabled:opacity-25"
             >
-              <ChevronLeft size={16} />
-              Previous
+              <ChevronLeft size={15} /> Prev
             </button>
-
             <button
-              onClick={() => setFlipped(!flipped)}
-              className="flex items-center gap-2 text-[#FFEE00] text-sm font-medium px-4 py-2 rounded-lg hover:bg-[#FFEE00]/08 transition-colors"
+              onClick={() => setFlipped(f => !f)}
+              className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-xl transition-colors"
+              style={{ color: AMBER }}
             >
-              <RotateCcw size={14} />
-              Flip
+              <RotateCcw size={13} /> Flip
             </button>
-
             <button
               onClick={next}
               disabled={current === cards.length - 1}
-              className="btn-secondary flex items-center gap-2 py-2 px-4 disabled:opacity-30"
+              className="btn-secondary flex items-center gap-2 py-2 px-4 disabled:opacity-25"
             >
-              Next
-              <ChevronRight size={16} />
+              Next <ChevronRight size={15} />
             </button>
           </div>
 
-          {/* All cards preview */}
-          <div className="mt-8">
-            <h3 className="text-[#6060A0] text-xs font-semibold uppercase tracking-wider mb-3">All Cards</h3>
-            <div className="grid gap-2">
+          {/* Card list */}
+          <div>
+            <h3 className="text-[10px] font-semibold tracking-widest uppercase text-[--text-muted] mb-3 px-1">
+              All Cards
+            </h3>
+            <div className="grid gap-1.5">
               {cards.map((card, i) => (
                 <div
                   key={card.id}
                   onClick={() => { setCurrent(i); setFlipped(false) }}
-                  className={`flex items-start gap-3 p-3 rounded-xl cursor-pointer transition-all ${i === current ? 'bg-[#FFEE00]/08 border border-[#FFEE00]/20' : 'glass-hover glass'}`}
+                  className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all"
+                  style={i === current
+                    ? { background: AMBER_DIM, border: `1px solid ${AMBER_BORDER}` }
+                    : { background: 'transparent', border: '1px solid transparent' }}
                 >
-                  <span className="text-[#FFEE00] text-xs font-mono font-bold mt-0.5 w-5 flex-shrink-0">{i + 1}</span>
-                  <p className="text-[#C0C0E0] text-sm truncate">{card.front}</p>
+                  <span
+                    className="text-xs font-mono font-bold w-5 flex-shrink-0 tabular-nums"
+                    style={{ color: AMBER }}
+                  >
+                    {i + 1}
+                  </span>
+                  <p className="text-[--text-secondary] text-sm truncate">{card.front}</p>
                 </div>
               ))}
             </div>
           </div>
         </>
+
       ) : (
-        <div className="card p-10 text-center border-dashed">
-          <Layers size={32} className="text-[#FFEE00] mx-auto mb-4 opacity-60" />
-          <p className="text-[#9090D0] mb-4">No flashcards yet. Generate them from your document!</p>
-          <button onClick={generateCards} className="btn-primary mx-auto" style={{ background: 'linear-gradient(135deg, #FFEE00, #FFB800)' }}>
-            <Sparkles size={16} className="inline mr-2" />
-            Generate Flashcards
+        /* Empty state */
+        <div className="card p-12 text-center border-dashed">
+          <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-5"
+            style={{ background: AMBER_DIM, border: `1px solid ${AMBER_BORDER}` }}>
+            <Layers size={24} style={{ color: AMBER }} />
+          </div>
+          <h3 className="font-display text-xl text-[--text-primary] mb-2">No Flashcards Yet</h3>
+          <p className="text-[--text-secondary] text-sm mb-6">Generate AI-powered flashcards from your document.</p>
+          <button
+            onClick={generateCards}
+            className="btn-primary mx-auto inline-flex items-center gap-2"
+            style={{ background: `linear-gradient(135deg, ${AMBER}, #FF9500)` }}
+          >
+            <Sparkles size={15} /> Generate Flashcards
           </button>
         </div>
       )}
