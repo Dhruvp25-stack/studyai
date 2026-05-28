@@ -1,191 +1,84 @@
+// FILE LOCATION: components/features/ExplainPanel.tsx
 'use client'
 
 import { useState } from 'react'
 import { useApp } from '@/app/(dashboard)/dashboard/layout'
-import { Lightbulb, Sparkles, Search, AlertCircle, X } from 'lucide-react'
+import { Lightbulb, Sparkles, AlertCircle } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 
-const AMBER = '#FF8C42'
-const AMBER_DIM = 'rgba(255,140,66,0.08)'
-const AMBER_BORDER = 'rgba(255,140,66,0.18)'
-
 export function ExplainPanel() {
-  const { activeDoc } = useApp()
-  const [explanation, setExplanation] = useState('')
-  const [topic, setTopic] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+  const { activeDoc }            = useApp()
+  const [result, setResult]      = useState('')
+  const [topic, setTopic]        = useState('')
+  const [loading, setLoading]    = useState(false)
+  const [error, setError]        = useState('')
 
-  const generate = async (overrideTopic?: string) => {
+  const generate = async (t?: string) => {
     if (!activeDoc) return
-    setLoading(true)
-    setError('')
-    const useTopic = overrideTopic !== undefined ? overrideTopic : topic
-
+    setLoading(true); setError('')
     try {
-      const res = await fetch('/api/ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'explain',
-          content: activeDoc.content,
-          topic: useTopic || undefined,
-        }),
-      })
+      const res  = await fetch('/api/ai', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'explain', content: activeDoc.content, topic: t !== undefined ? t : topic || undefined }) })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
-      setExplanation(data.result)
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to generate explanation')
-    } finally {
-      setLoading(false)
-    }
+      setResult(data.result)
+    } catch (err: unknown) { setError(err instanceof Error ? err.message : 'Failed') }
+    finally { setLoading(false) }
   }
 
-  if (!activeDoc) {
-    return (
-      <div className="flex flex-col items-center justify-center py-28 text-center animate-fade-in">
-        <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-5"
-          style={{ background: AMBER_DIM, border: `1px solid ${AMBER_BORDER}` }}>
-          <Lightbulb size={26} style={{ color: AMBER }} />
-        </div>
-        <h2 className="font-display text-2xl text-[--text-primary] mb-2">No Document Selected</h2>
-        <p className="text-[--text-secondary] text-sm">Upload or select a document to use Explain Simple</p>
-      </div>
-    )
-  }
+  if (!activeDoc) return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60vh', textAlign: 'center' }}>
+      <Lightbulb size={32} color="#333" style={{ marginBottom: 12 }} />
+      <p style={{ color: '#555', fontSize: 14 }}>Select a document to use Explain Simple</p>
+    </div>
+  )
 
   return (
-    <div className="max-w-3xl mx-auto animate-fade-in-up">
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-1.5">
-        <div className="w-9 h-9 rounded-xl flex items-center justify-center"
-          style={{ background: AMBER_DIM, border: `1px solid ${AMBER_BORDER}` }}>
-          <Lightbulb size={16} style={{ color: AMBER }} />
-        </div>
-        <h1 className="font-display text-3xl text-[--text-primary] leading-none mt-0.5">Explain Simple</h1>
+    <div style={{ maxWidth: 680, margin: '0 auto' }} className="fade-up">
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: '#F2F2F2', letterSpacing: '-0.4px', marginBottom: 3 }}>Explain Simple</h1>
+        <p style={{ fontSize: 13, color: '#555' }}>Complex topics explained in plain language</p>
       </div>
-      <p className="text-[--text-secondary] text-sm mb-7 ml-12">
-        Complex topics explained like you&apos;re 12 years old 🧒
-      </p>
 
-      {/* Topic input card */}
-      <div className="card p-5 mb-6">
-        <p className="text-[--text-primary] text-sm font-medium mb-3">
-          Specific topic to explain?
-          <span className="text-[--text-muted] font-normal ml-1">(optional)</span>
+      <div className="card" style={{ padding: '16px 18px', marginBottom: 16 }}>
+        <p style={{ fontSize: 13, fontWeight: 500, color: '#888', marginBottom: 10 }}>
+          Specific topic? <span style={{ color: '#555', fontWeight: 400 }}>(optional)</span>
         </p>
-        <div className="flex gap-3">
-          <div className="relative flex-1">
-            <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[--text-muted]" />
-            <input
-              type="text"
-              value={topic}
-              onChange={e => setTopic(e.target.value)}
-              placeholder="e.g. 'photosynthesis', 'the main argument', 'Chapter 3'…"
-              className="input-field pl-9"
-              onKeyDown={e => e.key === 'Enter' && generate()}
-            />
-          </div>
-          <button
-            onClick={() => generate()}
-            disabled={loading}
-            className="btn-primary flex items-center gap-2 flex-shrink-0"
-            style={{ background: `linear-gradient(135deg, ${AMBER}, #FF6A00)` }}
-          >
-            {loading
-              ? <span className="w-3.5 h-3.5 border-2 border-t-transparent border-[#03030A] rounded-full animate-spin" />
-              : <Sparkles size={13} />}
-            {loading ? 'Explaining…' : 'Explain It!'}
+        <div style={{ display: 'flex', gap: 10 }}>
+          <input
+            type="text" value={topic} onChange={e => setTopic(e.target.value)}
+            placeholder="e.g. 'photosynthesis', 'main argument', 'Chapter 3'…"
+            className="input" style={{ flex: 1 }}
+            onKeyDown={e => e.key === 'Enter' && generate()}
+          />
+          <button onClick={() => generate()} disabled={loading} className="btn btn-primary">
+            {loading ? <span style={{ width: 13, height: 13, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%' }} className="spin" /> : <Sparkles size={13} />}
+            {loading ? 'Explaining…' : 'Explain'}
           </button>
         </div>
       </div>
 
-      {/* Error */}
-      {error && (
-        <div className="flex items-center gap-3 mb-5 px-4 py-3 rounded-xl
-          bg-[--accent-rose]/8 border border-[--accent-rose]/20 text-[--accent-rose] text-sm">
-          <AlertCircle size={14} className="flex-shrink-0" />
-          <span className="flex-1">{error}</span>
-          <button onClick={() => setError('')} className="opacity-70 hover:opacity-100">
-            <X size={13} />
-          </button>
-        </div>
-      )}
+      {error && <div style={{ display: 'flex', gap: 9, padding: '10px 14px', borderRadius: 8, marginBottom: 16, background: 'rgba(248,113,113,0.07)', border: '1px solid rgba(248,113,113,0.18)', color: '#F87171', fontSize: 13 }}><AlertCircle size={14} />{error}</div>}
 
-      {/* Loading skeleton */}
       {loading ? (
-        <div className="card p-7">
-          <div className="space-y-3 mb-6">
-            {[88, 72, 94, 60, 80, 68].map((w, i) => (
-              <div key={i} className="shimmer h-3.5 rounded-lg" style={{ width: `${w}%` }} />
-            ))}
-          </div>
-          <div className="flex items-center gap-3 text-[--text-secondary] text-sm pt-4 border-t border-[--border]">
-            <div className="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin"
-              style={{ borderTopColor: AMBER }} />
-            Making it super simple to understand…
-          </div>
+        <div className="card" style={{ padding: 24 }}>
+          {[85, 70, 90, 60, 75].map((w, i) => <div key={i} className="shimmer" style={{ height: 13, borderRadius: 6, marginBottom: 10, width: `${w}%` }} />)}
         </div>
-
-      ) : explanation ? (
+      ) : result ? (
         <>
-          {/* Topic badge */}
-          <div
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm mb-4"
-            style={{ background: AMBER_DIM, color: AMBER, border: `1px solid ${AMBER_BORDER}` }}
-          >
-            <Lightbulb size={13} />
-            Explained simply{topic ? ` — "${topic}"` : ''}
+          <div className="card prose-ai" style={{ padding: 24 }} >
+            <ReactMarkdown>{result}</ReactMarkdown>
           </div>
-
-          <div className="card p-7 prose-dark animate-fade-in mb-4">
-            <ReactMarkdown>{explanation}</ReactMarkdown>
-          </div>
-
-          <div className="flex gap-2">
-            <button
-              onClick={() => generate('')}
-              className="btn-secondary text-sm py-2"
-            >
-              Explain whole document
-            </button>
-            <button
-              onClick={() => setExplanation('')}
-              className="btn-secondary text-sm py-2"
-            >
-              Clear
-            </button>
+          <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+            <button onClick={() => generate('')} className="btn btn-secondary" style={{ fontSize: 12 }}>Explain whole document</button>
+            <button onClick={() => setResult('')} className="btn btn-secondary" style={{ fontSize: 12 }}>Clear</button>
           </div>
         </>
-
       ) : (
-        /* Empty state */
-        <div className="card p-12 text-center border-dashed">
-          <div className="text-5xl mb-5">🧠</div>
-          <h3 className="font-display text-xl text-[--text-primary] mb-2">ELI12 Mode</h3>
-          <p className="text-[--text-secondary] text-sm mb-5 max-w-sm mx-auto leading-relaxed">
-            Gemini AI will explain your document using simple language, fun analogies, and
-            real-world examples that anyone can understand.
-          </p>
-          <div className="flex flex-wrap justify-center gap-2 mb-7">
-            {['🎯 Simple words', '🔗 Analogies', '🌍 Examples', '🎉 Engaging'].map(tag => (
-              <span
-                key={tag}
-                className="px-3 py-1 rounded-full text-xs"
-                style={{ background: AMBER_DIM, color: AMBER, border: `1px solid ${AMBER_BORDER}` }}
-              >
-                {tag}
-              </span>
-            ))}
-          </div>
-          <button
-            onClick={() => generate()}
-            className="btn-primary mx-auto inline-flex items-center gap-2"
-            style={{ background: `linear-gradient(135deg, ${AMBER}, #FF6A00)` }}
-          >
-            <Lightbulb size={15} /> Explain This Document Simply
-          </button>
+        <div className="card" style={{ padding: '56px 32px', textAlign: 'center', borderStyle: 'dashed' }}>
+          <div style={{ fontSize: 36, marginBottom: 14 }}>🧠</div>
+          <h3 style={{ fontSize: 16, fontWeight: 600, color: '#E0E0E0', marginBottom: 6 }}>ELI12 Mode</h3>
+          <p style={{ fontSize: 13.5, color: '#555', marginBottom: 6, maxWidth: 340, margin: '0 auto 20px' }}>Explains your document using simple language, analogies, and real-world examples.</p>
+          <button onClick={() => generate()} className="btn btn-primary" style={{ margin: '0 auto' }}><Lightbulb size={13} /> Explain Simply</button>
         </div>
       )}
     </div>
